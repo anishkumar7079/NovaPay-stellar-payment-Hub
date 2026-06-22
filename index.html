@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NovaPay — Stellar Payment Hub</title>
+  <meta name="description" content="NovaPay is a premium Stellar dApp for sending XLM, checking balances, and exploring transaction history on the Stellar Testnet." />
+  <meta property="og:title" content="NovaPay — Stellar Payment Hub" />
+  <meta property="og:description" content="Connect your Freighter wallet, view your XLM balance, and send payments on the Stellar Testnet." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+
+  <!-- Stellar SDK via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/stellar-sdk/12.3.0/stellar-sdk.js"></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Animated Canvas Background -->
+  <canvas id="starfield" aria-hidden="true"></canvas>
+
+  <!-- Ambient Orbs -->
+  <div class="orb orb-1" aria-hidden="true"></div>
+  <div class="orb orb-2" aria-hidden="true"></div>
+  <div class="orb orb-3" aria-hidden="true"></div>
+
+  <!-- ─── NAVBAR ─────────────────────────────────── -->
+  <nav class="navbar" role="navigation" aria-label="Main navigation">
+    <div class="nav-brand">
+      <div class="nav-logo" aria-hidden="true">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+          <polygon points="16,2 20,12 30,12 22,19 25,30 16,23 7,30 10,19 2,12 12,12" fill="url(#starGrad)"/>
+          <defs>
+            <linearGradient id="starGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#a78bfa"/>
+              <stop offset="100%" stop-color="#06b6d4"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <span class="nav-title">NovaPay</span>
+      <span class="nav-badge">TESTNET</span>
+    </div>
+
+    <div class="nav-actions">
+      <div class="network-pill" id="networkPill" aria-live="polite">
+        <span class="network-dot"></span>
+        <span>Stellar Testnet</span>
+      </div>
+      <button id="connectBtn" class="btn btn-connect" aria-label="Connect Freighter wallet">
+        <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="7" width="20" height="14" rx="2"/>
+          <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+          <line x1="12" y1="12" x2="12" y2="16"/>
+          <line x1="10" y1="14" x2="14" y2="14"/>
+        </svg>
+        Connect Wallet
+      </button>
+    </div>
+  </nav>
+
+  <!-- ─── HERO (shown when disconnected) ──────────── -->
+  <section class="hero" id="heroSection" aria-labelledby="heroHeading">
+    <div class="hero-content">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        Live on Stellar Testnet
+      </div>
+      <h1 id="heroHeading" class="hero-title">
+        Your Gateway to<br/>
+        <span class="gradient-text">Stellar Payments</span>
+      </h1>
+      <p class="hero-subtitle">
+        Connect your Freighter wallet to send XLM, track your balance, and explore your transaction history — all in one premium interface.
+      </p>
+      <div class="hero-features">
+        <div class="feature-pill">⚡ Instant Payments</div>
+        <div class="feature-pill">📊 Live Balance</div>
+        <div class="feature-pill">🔍 Tx History</div>
+        <div class="feature-pill">🚰 Testnet Faucet</div>
+      </div>
+      <button id="heroConnectBtn" class="btn btn-hero" aria-label="Connect Freighter wallet to get started">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        Connect Freighter Wallet
+      </button>
+      <p class="hero-note">
+        Don't have Freighter? 
+        <a href="https://freighter.app" target="_blank" rel="noopener noreferrer">Install it free →</a>
+      </p>
+    </div>
+
+    <div class="hero-visual" aria-hidden="true">
+      <div class="planet-ring">
+        <div class="planet"></div>
+        <div class="orbit orbit-1"><div class="satellite sat-1"></div></div>
+        <div class="orbit orbit-2"><div class="satellite sat-2"></div></div>
+        <div class="orbit orbit-3"><div class="satellite sat-3"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── DASHBOARD (shown when connected) ─────────── -->
+  <main class="dashboard" id="dashboard" aria-label="Wallet Dashboard" hidden>
+
+    <!-- Wallet Info Bar -->
+    <div class="wallet-bar" id="walletBar">
+      <div class="wallet-info">
+        <div class="wallet-avatar" id="walletAvatar" aria-hidden="true">★</div>
+        <div class="wallet-details">
+          <span class="wallet-label">Connected Wallet</span>
+          <div class="wallet-address-row">
+            <span class="wallet-address" id="walletAddressDisplay">—</span>
+            <button class="icon-btn copy-btn" id="copyAddressBtn" aria-label="Copy wallet address" title="Copy address">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="wallet-bar-actions">
+        <button id="faucetBtn" class="btn btn-faucet" aria-label="Request testnet XLM from Friendbot">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+          </svg>
+          Get Free XLM
+        </button>
+        <button id="disconnectBtn" class="btn btn-disconnect" aria-label="Disconnect wallet">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+          Disconnect
+        </button>
+      </div>
+    </div>
+
+    <!-- Dashboard Grid -->
+    <div class="dashboard-grid">
+
+      <!-- Balance Card -->
+      <div class="card card-balance" role="region" aria-label="XLM Balance">
+        <div class="card-header">
+          <div class="card-icon card-icon-balance" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+          </div>
+          <span class="card-label">XLM Balance</span>
+          <button class="icon-btn refresh-btn" id="refreshBalanceBtn" aria-label="Refresh balance" title="Refresh">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+          </button>
+        </div>
+        <div class="balance-display">
+          <div class="balance-amount" id="balanceAmount" aria-live="polite">
+            <span class="balance-number" id="balanceNumber">—</span>
+            <span class="balance-currency">XLM</span>
+          </div>
+          <div class="balance-usd" id="balanceUsd">≈ $0.00 USD</div>
+        </div>
+        <div class="balance-chart-wrap">
+          <canvas id="balanceChart" aria-label="Balance sparkline chart" role="img"></canvas>
+        </div>
+        <div class="balance-meta">
+          <div class="balance-meta-item">
+            <span class="meta-label">Last Updated</span>
+            <span class="meta-value" id="lastUpdated">—</span>
+          </div>
+          <div class="balance-meta-item">
+            <span class="meta-label">Network</span>
+            <span class="meta-value">Testnet</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Send Payment Card -->
+      <div class="card card-send" role="region" aria-label="Send Payment">
+        <div class="card-header">
+          <div class="card-icon card-icon-send" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+          </div>
+          <span class="card-label">Send Payment</span>
+        </div>
+
+        <form class="send-form" id="sendForm" novalidate aria-label="Send XLM form">
+          <div class="form-group">
+            <label class="form-label" for="destinationInput">Recipient Address</label>
+            <div class="input-wrap">
+              <input
+                type="text"
+                id="destinationInput"
+                class="form-input"
+                placeholder="G... Stellar public key"
+                autocomplete="off"
+                spellcheck="false"
+                aria-required="true"
+                aria-describedby="destError"
+              />
+              <button type="button" class="input-paste-btn" id="pasteBtn" aria-label="Paste address from clipboard">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+                  <rect x="8" y="2" width="8" height="4" rx="1"/>
+                </svg>
+                Paste
+              </button>
+            </div>
+            <span class="field-error" id="destError" role="alert" aria-live="polite"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="amountInput">Amount (XLM)</label>
+            <div class="input-wrap">
+              <span class="input-prefix" aria-hidden="true">XLM</span>
+              <input
+                type="number"
+                id="amountInput"
+                class="form-input input-with-prefix"
+                placeholder="0.0000000"
+                min="0.0000001"
+                step="0.0000001"
+                aria-required="true"
+                aria-describedby="amountError"
+              />
+            </div>
+            <span class="field-error" id="amountError" role="alert" aria-live="polite"></span>
+          </div>
+
+          <!-- Quick Amount Presets -->
+          <div class="quick-amounts" role="group" aria-label="Quick amount presets">
+            <span class="quick-label">Quick:</span>
+            <button type="button" class="quick-btn" data-amount="0.1" aria-label="Set amount to 0.1 XLM">0.1</button>
+            <button type="button" class="quick-btn" data-amount="1" aria-label="Set amount to 1 XLM">1</button>
+            <button type="button" class="quick-btn" data-amount="5" aria-label="Set amount to 5 XLM">5</button>
+            <button type="button" class="quick-btn" data-amount="10" aria-label="Set amount to 10 XLM">10</button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="memoInput">Memo <span class="optional">(optional)</span></label>
+            <input
+              type="text"
+              id="memoInput"
+              class="form-input"
+              placeholder="Add a note..."
+              maxlength="28"
+              aria-describedby="memoCount"
+            />
+            <span class="memo-count" id="memoCount" aria-live="polite">0/28</span>
+          </div>
+
+          <button type="submit" class="btn btn-send" id="sendBtn" aria-label="Send XLM payment">
+            <svg class="btn-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            <span id="sendBtnText">Send Payment</span>
+          </button>
+        </form>
+      </div>
+
+      <!-- Transaction History Card -->
+      <div class="card card-history" role="region" aria-label="Transaction History">
+        <div class="card-header">
+          <div class="card-icon card-icon-history" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="12 8 12 12 14 14"/><circle cx="12" cy="12" r="10"/>
+            </svg>
+          </div>
+          <span class="card-label">Transaction History</span>
+          <button class="icon-btn" id="refreshHistoryBtn" aria-label="Refresh transaction history" title="Refresh">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+          </button>
+        </div>
+        <div class="history-list" id="historyList" aria-live="polite" aria-label="Recent transactions">
+          <div class="history-empty">
+            <div class="empty-icon" aria-hidden="true">🌌</div>
+            <p>No transactions yet</p>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /dashboard-grid -->
+  </main>
+
+  <!-- ─── SUCCESS OVERLAY ─────────────────────────── -->
+  <div class="overlay" id="successOverlay" role="dialog" aria-modal="true" aria-labelledby="successTitle" hidden>
+    <div class="overlay-card success-card">
+      <div class="success-icon-wrap" aria-hidden="true">
+        <div class="success-icon">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <div class="success-ring"></div>
+      </div>
+      <h2 id="successTitle" class="overlay-title">Transaction Sent! 🚀</h2>
+      <p class="overlay-subtitle">Your XLM has been successfully sent on the Stellar Testnet.</p>
+      <div class="tx-detail">
+        <span class="tx-detail-label">Transaction Hash</span>
+        <div class="tx-hash-row">
+          <span class="tx-hash-val" id="txHashDisplay">—</span>
+          <button class="icon-btn copy-btn" id="copyTxHashBtn" aria-label="Copy transaction hash">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="overlay-actions">
+        <a id="viewOnExplorerBtn" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-explorer">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+          View on Explorer
+        </a>
+        <button class="btn btn-secondary" id="closeSuccessBtn" aria-label="Close success dialog">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── TOAST CONTAINER ─────────────────────────── -->
+  <div class="toast-container" id="toastContainer" role="region" aria-label="Notifications" aria-live="polite"></div>
+
+  <!-- ─── LOADING OVERLAY ─────────────────────────── -->
+  <div class="loading-overlay" id="loadingOverlay" aria-live="assertive" aria-busy="true" hidden>
+    <div class="loading-content">
+      <div class="loading-spinner" aria-hidden="true">
+        <div class="spinner-ring"></div>
+        <div class="spinner-star" aria-hidden="true">★</div>
+      </div>
+      <p class="loading-text" id="loadingText">Processing...</p>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
