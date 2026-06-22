@@ -76,19 +76,20 @@ const els = {
 // ══════════════════════════════════════════════════════════════
 
 /**
- * Check if Freighter is installed — polls up to 3 seconds
- * since the extension may take time to inject into the page
+ * Check if Freighter is installed — uses the imported @stellar/freighter-api
  */
 async function isFreighterInstalled() {
-  // Check immediately
-  if (window.freighterApi || window.freighter) return true;
-
-  // Poll every 200ms for up to 3 seconds (15 attempts)
-  for (let i = 0; i < 15; i++) {
-    await new Promise(r => setTimeout(r, 200));
-    if (window.freighterApi || window.freighter) return true;
+  if (window.freighter) return true;
+  if (!window.freighterApi) return false;
+  try {
+    const res = await window.freighterApi.isConnected();
+    if (res && typeof res.isConnected === 'boolean') return res.isConnected;
+    if (typeof res === 'boolean') return res;
+    return !!res;
+  } catch (err) {
+    console.error('Freighter detection check failed:', err);
+    return false;
   }
-  return false;
 }
 
 /**
@@ -116,30 +117,42 @@ async function connectWallet() {
 
   try {
     const api = getFreighterApi();
+    if (!api) throw new Error('Freighter API is not initialized.');
 
-    // Request access
+    // Request access/get address
     const accessResult = await api.requestAccess();
-    if (accessResult.error) throw new Error(accessResult.error);
+    if (accessResult && accessResult.error) throw new Error(accessResult.error);
 
-    // Get public key
-    let publicKey;
-    if (typeof api.getPublicKey === 'function') {
-      const pkResult = await api.getPublicKey();
-      publicKey = pkResult.publicKey || pkResult;
-    } else if (typeof api.getAddress === 'function') {
-      const addrResult = await api.getAddress();
-      publicKey = addrResult.address || addrResult;
-    } else {
-      throw new Error('Could not retrieve public key from Freighter.');
+    let publicKey = '';
+    if (typeof accessResult === 'string') {
+      publicKey = accessResult;
+    } else if (accessResult && typeof accessResult.address === 'string') {
+      publicKey = accessResult.address;
+    } else if (accessResult && typeof accessResult.publicKey === 'string') {
+      publicKey = accessResult.publicKey;
     }
 
-    if (!publicKey || !StrKey.isValidEd25519PublicKey(publicKey)) {
-      throw new Error('Invalid public key received from Freighter.');
+    if (!publicKey) {
+      // Fallback to getPublicKey / getAddress
+      if (typeof api.getPublicKey === 'function') {
+        const pkResult = await api.getPublicKey();
+        if (pkResult && pkResult.error) throw new Error(pkResult.error);
+        publicKey = pkResult.publicKey || pkResult;
+      } else if (typeof api.getAddress === 'function') {
+        const addrResult = await api.getAddress();
+        if (addrResult && addrResult.error) throw new Error(addrResult.error);
+        publicKey = addrResult.address || addrResult;
+      }
+    }
+
+    if (!publicKey || typeof publicKey !== 'string' || !StrKey.isValidEd25519PublicKey(publicKey)) {
+      throw new Error('Invalid or empty public key received from wallet.');
     }
 
     // Check network
     if (typeof api.getNetwork === 'function') {
       const net = await api.getNetwork();
+      if (net && net.error) throw new Error(net.error);
       const networkName = (net.network || net || '').toUpperCase();
       if (networkName && !networkName.includes('TEST')) {
         toastWarning(
@@ -158,7 +171,7 @@ async function connectWallet() {
   } catch (err) {
     console.error('[connectWallet]', err);
     const msg = err.message || String(err);
-    if (msg.toLowerCase().includes('user declined') || msg.toLowerCase().includes('rejected')) {
+    if (msg.toLowerCase().includes('user declined') || msg.toLowerCase().includes('rejected') || msg.toLowerCase().includes('cancelled')) {
       toastInfo('Connection Cancelled', 'You cancelled the wallet connection.');
     } else {
       toastError('Connection Failed', msg);
@@ -425,12 +438,13 @@ async function handleSendPayment(e) {
         networkPassphrase: Networks.TESTNET,
         network: 'TESTNET',
       });
+      if (result && result.error) throw new Error(result.error);
       signedXdr = result.signedTxXdr || result;
     } else {
       throw new Error('Freighter signTransaction not available.');
     }
 
-    if (!signedXdr) throw new Error('No signed transaction received from Freighter.');
+    if (!signedXdr || typeof signedXdr !== 'string') throw new Error('No signed transaction received from Freighter.');
 
     // Submit to Horizon
     showLoading('Submitting to Stellar network...');
@@ -742,17 +756,17 @@ async function init() {
     const installed = await isFreighterInstalled();
     if (installed) {
       const api = getFreighterApi();
-      if (typeof api.isConnected === 'function') {
-        const connected = await api.isConnected();
-        if (connected?.isConnected || connected === true) {
-          // Silently restore session
+      if (typeof api.isAllowed === 'function') {
+        const allowedRes = await api.isAllowed();
+        const allowed = allowedRes && (allowedRes.isAllowed || allowedRes === true);
+        if (allowed) {
           let pk;
-          if (typeof api.getPublicKey === 'function') {
-            const r = await api.getPublicKey();
-            pk = r.publicKey || r;
-          } else if (typeof api.getAddress === 'function') {
+          if (typeof api.getAddress === 'function') {
             const r = await api.getAddress();
             pk = r.address || r;
+          } else if (typeof api.getPublicKey === 'function') {
+            const r = await api.getPublicKey();
+            pk = r.publicKey || r;
           }
           if (pk && StrKey.isValidEd25519PublicKey(pk)) {
             state.publicKey = pk;
