@@ -113,19 +113,23 @@ npx serve .
 
 ## 📸 Screenshots
 
-> *(Add screenshots here after deployment)*
+### 🌌 Landing Page
+![NovaPay Home](./screenshots/home_page.png)
 
-### Wallet Connected State
-![Wallet Connected](./screenshots/connected.png)
+### 🔗 Connecting Wallet
+![Connecting Wallet](./screenshots/connecting.png)
 
-### Balance Displayed
-![Balance Display](./screenshots/balance.png)
+### 💳 Wallet Connected & Balance Displayed
+![Wallet Connected & Balance](./screenshots/connected_and%20balance.png)
 
-### Successful Transaction
-![Transaction Success](./screenshots/success.png)
+### 🚀 Successful Transaction (Send Payment)
+![Transaction Sent](./screenshots/success.png)
 
-### Transaction History
+### 📈 Transaction History Updated
 ![Transaction History](./screenshots/history.png)
+
+### 🔍 Verified On-Chain (Stellar Expert)
+![Verified on Stellar Expert](./screenshots/verified_on_chain.png)
 
 ---
 
