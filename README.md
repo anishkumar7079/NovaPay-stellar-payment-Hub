@@ -209,12 +209,3 @@ const xlm = account.balances.find(b => b.asset_type === 'native');
 - Minimum 1 XLM reserve is enforced to keep accounts active
 - CORS-safe: all Stellar API calls use official public endpoints
 
----
-
-## 📄 License
-
-MIT © 2025 NovaPay
-
----
-
-*Built with ❤️ and ★ for the Stellar White Belt Challenge*
