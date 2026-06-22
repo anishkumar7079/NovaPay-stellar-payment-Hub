@@ -76,12 +76,19 @@ const els = {
 // ══════════════════════════════════════════════════════════════
 
 /**
- * Check if Freighter is installed
+ * Check if Freighter is installed — polls up to 3 seconds
+ * since the extension may take time to inject into the page
  */
 async function isFreighterInstalled() {
-  // Give the extension a moment to inject
-  await new Promise(r => setTimeout(r, 300));
-  return typeof window.freighter !== 'undefined' || typeof window.freighterApi !== 'undefined';
+  // Check immediately
+  if (window.freighterApi || window.freighter) return true;
+
+  // Poll every 200ms for up to 3 seconds (15 attempts)
+  for (let i = 0; i < 15; i++) {
+    await new Promise(r => setTimeout(r, 200));
+    if (window.freighterApi || window.freighter) return true;
+  }
+  return false;
 }
 
 /**
