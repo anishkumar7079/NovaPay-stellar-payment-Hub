@@ -23,8 +23,8 @@ const FRIENDBOT_URL = 'https://friendbot.stellar.org';
 const XLM_USD_PRICE = 0.11; // Approximate — in a real app you'd fetch this live
 
 // ── StellarSdk (loaded via CDN global) ────────────────────────
-const { Server, Networks, TransactionBuilder, Operation, Asset, Memo, StrKey } = StellarSdk;
-const server = new Server(HORIZON_URL);
+const { Horizon, Networks, TransactionBuilder, Operation, Asset, Memo, StrKey, BASE_FEE } = StellarSdk;
+const server = new Horizon.Server(HORIZON_URL);
 
 // ── App State ──────────────────────────────────────────────────
 const state = {
@@ -391,7 +391,7 @@ async function handleSendPayment(e) {
 
     // Build transaction
     const txBuilder = new TransactionBuilder(sourceAccount, {
-      fee: await server.fetchBaseFee(),
+      fee: BASE_FEE,
       networkPassphrase: Networks.TESTNET,
     })
     .addOperation(Operation.payment({
